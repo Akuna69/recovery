@@ -230,13 +230,26 @@ func exitWithError(err error) {
 	_ = utils.NewLogger("").Errorf("exited with error: %s", err.Error())
 	_ = os.WriteFile("error_log", debugOutputStream.Bytes(), 0600)
 
-	os.Exit(1)
-}
-
 func printWelcomeMessage() {
-	say(`
-		{blue Muun Recovery Tool v%s}
+	// Limpia la pantalla al iniciar
+	fmt.Print("\033[H\033[2J")
 
+	// Colores ANSI
+	cyan := color.New(color.FgCyan, color.OpBold).Sprint
+	reset := "\033[0m"
+}
+	// Banner estilo ASCII Art
+	fmt.Println(cyan("┌────────────────────────────────────────────────────────┐"))
+	fmt.Println(cyan("│  ███╗   ███╗██╗   ██╗██╗   ██╗███╗   ██╗               │"))
+	fmt.Println(cyan("│  ████╗ ████║██║   ██║██║   ██║████╗  ██║    FAST       │"))
+	fmt.Println(cyan("│  ██╔████╔██║██║   ██║██║   ██║██╔██╗ ██║  RECOVERY     │"))
+	fmt.Println(cyan("│  ██║╚██╔╝██║██║   ██║██║   ██║██║╚██╗██║               │"))
+	fmt.Println(cyan("│  ██║ ╚═╝ ██║╚██████╔╝╚██████╔╝██║ ╚████║ v2.8.19@stable │"))
+	fmt.Println(cyan("└────────────────────────────────────────────────────────┘") + reset)
+	fmt.Println()
+
+	// Instrucciones originales preservadas
+	say(`
 		To recover your funds, you will need:
 		
 		1. {yellow Your Recovery Code}, which you wrote down during your security setup
