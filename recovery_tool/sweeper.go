@@ -1,4 +1,5 @@
-package recovery_tool
+package main
+
 
 import (
 	"fmt"
