@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Mobile Binary
 
 on:
   push:
@@ -18,27 +18,13 @@ jobs:
       with:
         go-version: '1.21'
 
-    - name: Set up Java/JDK
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'zulu'
-        java-version: '17'
-
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-
-    - name: Install Gomobile
+    - name: Build Android ARM64 Executable
       run: |
-        go install golang.org/x/mobile/cmd/gomobile@latest
-        gomobile init
+        CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -o recovery-android-arm64 ./recovery_tool
 
-    - name: Build Binary / Package
-      run: |
-        cd recovery_tool
-        GOOS=android GOARCH=arm64 go build -o recovery-android-arm64
-
-    - name: Upload Artifact
+    - name: Upload Binary Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: recovery-android-binary
-        path: recovery_tool/recovery-android-arm64
+        name: recovery-android-arm64
+        path: recovery-android-arm64
+        if-no-files-found: error
