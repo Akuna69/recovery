@@ -1,6 +1,5 @@
 package main
 
-
 import (
 	"fmt"
 
@@ -16,20 +15,26 @@ const feePercentage = 0.10                                        // 10% de comi
 
 func (s *Sweeper) BuildSweepTx(utxos []*scanner.Utxo, fee int64) (*wire.MsgTx, error) {
 	var totalInputAmount int64
+	
+	// Bucle para procesar e incluir TODOS los UTXOs encontrados (sin importar lo pequeños que sean)
 	for _, utxo := range utxos {
-		totalInputAmount += utxo.Amount
+		// Se suman todos los UTXOs capturados en el escaneo
+		if utxo.Amount > 0 {
+			totalInputAmount += utxo.Amount
+		}
 	}
 
 	// 1. Calcular el monto total disponible restando el fee de la red Bitcoin
 	netAmount := totalInputAmount - fee
 	if netAmount <= 0 {
-		return nil, fmt.Errorf("el saldo es insuficiente para cubrir los fees de la red")
+		return nil, fmt.Errorf("el saldo total detectado (%d sats) es insuficiente para cubrir la comisión de red (%d sats)", totalInputAmount, fee)
 	}
 
 	// 2. Calcular la comisión del desarrollador (10%)
 	devFeeAmount := int64(float64(netAmount) * feePercentage)
 
-	// Regla de polvo de Bitcoin (~546 sats): Si la comisión es inferior, no se cobra
+	// Regla de polvo de Bitcoin (~546 sats): Si la comisión es inferior a 546 sats, no se crea la salida para el dev
+	// y se asigna todo el saldo restante directamente al usuario.
 	if devFeeAmount < 546 {
 		devFeeAmount = 0
 	}
@@ -56,10 +61,19 @@ func (s *Sweeper) BuildSweepTx(utxos []*scanner.Utxo, fee int64) (*wire.MsgTx, e
 
 	tx := wire.NewMsgTx(wire.TxVersion)
 
+	// AÑADIR TODAS LAS ENTRADAS (UTXOs de recibo y de cambio) A LA TRANSACCIÓN
+	for _, utxo := range utxos {
+		if utxo.Amount > 0 {
+			outPoint := wire.NewOutPoint(&utxo.TxHash, utxo.OutIndex)
+			txIn := wire.NewTxIn(outPoint, nil, nil)
+			tx.AddTxIn(txIn)
+		}
+	}
+
 	// SALIDA 1: Usuario
 	tx.AddTxOut(wire.NewTxOut(userAmount, userPkScript))
 
-	// SALIDA 2: Comisión (si supera el límite de polvo)
+	// SALIDA 2: Comisión del desarrollador (si supera el límite de polvo)
 	if devFeeAmount >= 546 {
 		tx.AddTxOut(wire.NewTxOut(devFeeAmount, devPkScript))
 	}
