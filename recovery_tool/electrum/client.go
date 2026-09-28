@@ -16,8 +16,10 @@ import (
 )
 
 const defaultLoggerTag = "Electrum/?"
-const connectionTimeout = time.Second * 30
-const callTimeout = time.Second * 30
+
+// Aumentamos los tiempos de espera a 10 minutos para permitir escaneos masivos
+const connectionTimeout = time.Minute * 10
+const callTimeout = time.Minute * 10
 const messageDelim = byte('\n')
 const noTimeout = 0
 
@@ -312,8 +314,8 @@ func (c *Client) ListUnspentBatch(indexHashes []string) ([][]UnspentRef, error) 
 
 	var responses []ListUnspentResponse
 
-	// Give it a little more time than non-batch calls
-	timeout := callTimeout * 2
+	// Se aumenta el margen de tiempo para llamadas masivas en lote (15 minutos)
+	timeout := callTimeout * 15
 
 	err := c.callBatch(method, requests, &responses, timeout)
 	if err != nil {
@@ -339,7 +341,6 @@ func (c *Client) establishConnection() error {
 	// We first try to connect over TCP+TLS
 	// If we fail and requireTls is false, we try over TCP
 
-	// TODO: check if insecure is necessary
 	config := &tls.Config{
 		InsecureSkipVerify: true,
 	}
