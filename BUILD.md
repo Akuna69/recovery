@@ -6,7 +6,7 @@ To build the tool locally and run it, you must:
 2. Clone the repository:
 
     ```
-    git clone https://github.com/muun/recovery
+    git clone https://github.com/Akuna69/recovery.git
     cd recovery/recovery_tool
     ```
       
