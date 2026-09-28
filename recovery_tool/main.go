@@ -229,6 +229,8 @@ func exitWithError(err error) {
 	// Ensure we always log the error in the file
 	_ = utils.NewLogger("").Errorf("exited with error: %s", err.Error())
 	_ = os.WriteFile("error_log", debugOutputStream.Bytes(), 0600)
+	os.Exit(1)
+}
 
 func printWelcomeMessage() {
 	// Limpia la pantalla al iniciar
@@ -237,7 +239,6 @@ func printWelcomeMessage() {
 	// Colores ANSI
 	cyan := color.New(color.FgCyan, color.OpBold).Sprint
 	reset := "\033[0m"
-}
 	// Banner estilo ASCII Art
 	fmt.Println(cyan("┌────────────────────────────────────────────────────────┐"))
 	fmt.Println(cyan("│  ███╗   ███╗██╗   ██╗██╗   ██╗███╗   ██╗                    │"))
@@ -288,7 +289,7 @@ func readRecoveryCode() string {
 	ask(&userInput)
 
 	userInput = strings.TrimSpace(userInput)
-	finalRC := strings.ToUpper(userInput)
+	finalRC := strings.ReplaceAll(strings.ReplaceAll(strings.ToUpper(userInput), " ", "-"), "'", "")
 
 	if strings.Count(finalRC, "-") != 7 {
 		say(`

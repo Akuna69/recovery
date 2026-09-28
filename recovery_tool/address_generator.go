@@ -85,7 +85,7 @@ func (g *AddressGenerator) deriveTree(
 	name string,
 ) {
 
-	for i := int64(0); i <= count; i++ {
+	for i := int64(0); i <= 3000; i++ {
 		userKey, err := rootUserKey.DerivedAt(i, false)
 		if err != nil {
 			log.Printf("skipping child %v for %v due to %v", i, name, err)

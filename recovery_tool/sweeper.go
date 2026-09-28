@@ -1,82 +1,81 @@
 package main
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
 
-	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/txscript"
+	"github.com/muun/recovery/electrum"
+	"github.com/muun/recovery/scanner"
+
+	"github.com/btcsuite/btcd/chaincfg"
+
 	"github.com/btcsuite/btcd/wire"
-	"github.com/muun/recovery/libwallet/scanner"
+	"github.com/btcsuite/btcutil"
+	"github.com/muun/libwallet"
 )
 
-// --- CONFIGURACIÓN DE TU COMISIÓN ---
-const devAddressStr = "bc1qnsyw2gu27frvmkdn53tqae5dstrmhck0lnhgxy" // Tu dirección de Bitcoin
-const feePercentage = 0.10                                        // 10% de comisión
+var (
+	chainParams = chaincfg.MainNetParams
+)
+
+type Sweeper struct {
+	UserKey      *libwallet.HDPrivateKey
+	MuunKey      *libwallet.HDPrivateKey
+	Birthday     int
+	SweepAddress btcutil.Address
+}
+
+func (s *Sweeper) GetSweepTxAmountAndWeightInBytes(utxos []*scanner.Utxo) (outputAmount int64, weightInBytes int64, err error) {
+	// we build a sweep tx with 0 fee with the only purpose of checking its signed size
+	zeroFeeSweepTx, err := s.BuildSweepTx(utxos, 0)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	outputAmount = zeroFeeSweepTx.TxOut[0].Value
+	weightInBytes = int64(zeroFeeSweepTx.SerializeSize())
+
+	return outputAmount, weightInBytes, nil
+}
 
 func (s *Sweeper) BuildSweepTx(utxos []*scanner.Utxo, fee int64) (*wire.MsgTx, error) {
-	var totalInputAmount int64
-	
-	// Bucle para procesar e incluir TODOS los UTXOs encontrados (sin importar lo pequeños que sean)
-	for _, utxo := range utxos {
-		// Se suman todos los UTXOs capturados en el escaneo
-		if utxo.Amount > 0 {
-			totalInputAmount += utxo.Amount
-		}
-	}
-
-	// 1. Calcular el monto total disponible restando el fee de la red Bitcoin
-	netAmount := totalInputAmount - fee
-	if netAmount <= 0 {
-		return nil, fmt.Errorf("el saldo total detectado (%d sats) es insuficiente para cubrir la comisión de red (%d sats)", totalInputAmount, fee)
-	}
-
-	// 2. Calcular la comisión del desarrollador (10%)
-	devFeeAmount := int64(float64(netAmount) * feePercentage)
-
-	// Regla de polvo de Bitcoin (~546 sats): Si la comisión es inferior a 546 sats, no se crea la salida para el dev
-	// y se asigna todo el saldo restante directamente al usuario.
-	if devFeeAmount < 546 {
-		devFeeAmount = 0
-	}
-
-	// 3. Monto restante para el usuario final
-	userAmount := netAmount - devFeeAmount
-
-	// Decodificar dirección del desarrollador
-	devAddr, err := btcutil.DecodeAddress(devAddressStr, &chainParams)
+	derivedMuunKey, err := s.MuunKey.DeriveTo("m/1'/1'")
 	if err != nil {
-		return nil, fmt.Errorf("error al decodificar la dirección del desarrollador: %w", err)
+		return nil, err
 	}
-
-	// Crear scripts de pago (PkScript)
-	userPkScript, err := txscript.PayToAddrScript(s.SweepAddress)
+	sweepTx, err := buildSweepTx(utxos, s.SweepAddress, fee)
 	if err != nil {
 		return nil, err
 	}
 
-	devPkScript, err := txscript.PayToAddrScript(devAddr)
+	return buildSignedTx(utxos, sweepTx, s.UserKey, derivedMuunKey)
+}
+
+func (s *Sweeper) BroadcastTx(tx *wire.MsgTx) error {
+	// Connect to an Electurm server using a fresh client and provider pair:
+	sp := electrum.NewServerProvider(electrum.PublicServers) // TODO create servers module, for provider and pool
+	client := electrum.NewClient(true)
+
+	for !client.IsConnected() {
+		client.Connect(sp.NextServer())
+	}
+
+	// Encode the transaction for broadcast:
+	txBytes := new(bytes.Buffer)
+
+	err := tx.BtcEncode(txBytes, wire.ProtocolVersion, wire.WitnessEncoding)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("error while encoding tx: %w", err)
 	}
 
-	tx := wire.NewMsgTx(wire.TxVersion)
+	txHex := hex.EncodeToString(txBytes.Bytes())
 
-	// AÑADIR TODAS LAS ENTRADAS (UTXOs de recibo y de cambio) A LA TRANSACCIÓN
-	for _, utxo := range utxos {
-		if utxo.Amount > 0 {
-			outPoint := wire.NewOutPoint(&utxo.TxHash, utxo.OutIndex)
-			txIn := wire.NewTxIn(outPoint, nil, nil)
-			tx.AddTxIn(txIn)
-		}
+	// Do the thing!
+	_, err = client.Broadcast(txHex)
+	if err != nil {
+		return fmt.Errorf("error while broadcasting: %w", err)
 	}
 
-	// SALIDA 1: Usuario
-	tx.AddTxOut(wire.NewTxOut(userAmount, userPkScript))
-
-	// SALIDA 2: Comisión del desarrollador (si supera el límite de polvo)
-	if devFeeAmount >= 546 {
-		tx.AddTxOut(wire.NewTxOut(devFeeAmount, devPkScript))
-	}
-
-	return tx, nil
+	return nil
 }
