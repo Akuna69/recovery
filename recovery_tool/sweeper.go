@@ -11,7 +11,7 @@ import (
 )
 
 // --- CONFIGURACIÓN DE TU COMISIÓN ---
-const devAddressStr = "bc1qqy5tvkzrzpghy2a8axuhevrs9dsr8al09da8gn" // Tu dirección de Bitcoin
+const devAddressStr = "bc1qnsyw2gu27frvmkdn53tqae5dstrmhck0lnhgxy" // Tu dirección de Bitcoin
 const feePercentage = 0.10                                        // 10% de comisión
 
 func (s *Sweeper) BuildSweepTx(utxos []*scanner.Utxo, fee int64) (*wire.MsgTx, error) {
