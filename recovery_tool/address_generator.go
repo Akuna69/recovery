@@ -42,7 +42,7 @@ func (g *AddressGenerator) generate(consumer chan libwallet.MuunAddress) {
 	g.generateChangeAddrs(consumer)
 	g.generateExternalAddrs(consumer)
 	if g.generateContacts {
-		g.generateContactAddrs(consumer, 100)
+		g.generateContactAddrs(consumer, 500) // Aumentado a 500 contactos
 	}
 }
 
@@ -51,7 +51,8 @@ func (g *AddressGenerator) generateChangeAddrs(consumer chan libwallet.MuunAddre
 	changeUserKey, _ := g.userKey.DeriveTo(changePath)
 	changeMuunKey, _ := g.muunKey.DeriveTo(changePath)
 
-	g.deriveTree(consumer, changeUserKey, changeMuunKey, 2500, "change")
+	// Límite modificado a 100,000 para escaneo profundo
+	g.deriveTree(consumer, changeUserKey, changeMuunKey, 100000, "change")
 }
 
 func (g *AddressGenerator) generateExternalAddrs(consumer chan libwallet.MuunAddress) {
@@ -59,7 +60,8 @@ func (g *AddressGenerator) generateExternalAddrs(consumer chan libwallet.MuunAdd
 	externalUserKey, _ := g.userKey.DeriveTo(externalPath)
 	externalMuunKey, _ := g.muunKey.DeriveTo(externalPath)
 
-	g.deriveTree(consumer, externalUserKey, externalMuunKey, 2500, "external")
+	// Límite modificado a 100,000 para escaneo profundo
+	g.deriveTree(consumer, externalUserKey, externalMuunKey, 100000, "external")
 }
 
 func (g *AddressGenerator) generateContactAddrs(consumer chan libwallet.MuunAddress, numContacts int64) {
@@ -71,7 +73,8 @@ func (g *AddressGenerator) generateContactAddrs(consumer chan libwallet.MuunAddr
 		partialMuunUserKey, _ := contactMuunKey.DerivedAt(i, false)
 
 		branch := fmt.Sprintf("contacts-%v", i)
-		g.deriveTree(consumer, partialContactUserKey, partialMuunUserKey, 200, branch)
+		// Límite de direcciones por contacto aumentado a 1,000
+		g.deriveTree(consumer, partialContactUserKey, partialMuunUserKey, 1000, branch)
 	}
 }
 
