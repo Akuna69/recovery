@@ -240,11 +240,11 @@ func printWelcomeMessage() {
 }
 	// Banner estilo ASCII Art
 	fmt.Println(cyan("┌────────────────────────────────────────────────────────┐"))
-	fmt.Println(cyan("│  ███╗   ███╗██╗   ██╗██╗   ██╗███╗   ██╗               │"))
-	fmt.Println(cyan("│  ████╗ ████║██║   ██║██║   ██║████╗  ██║    FAST       │"))
-	fmt.Println(cyan("│  ██╔████╔██║██║   ██║██║   ██║██╔██╗ ██║  RECOVERY     │"))
-	fmt.Println(cyan("│  ██║╚██╔╝██║██║   ██║██║   ██║██║╚██╗██║               │"))
-	fmt.Println(cyan("│  ██║ ╚═╝ ██║╚██████╔╝╚██████╔╝██║ ╚████║ v2.8.19@stable │"))
+	fmt.Println(cyan("│  ███╗   ███╗██╗   ██╗██╗   ██╗███╗   ██╗                    │"))
+	fmt.Println(cyan("│  ████╗ ████║██║   ██║██║   ██║████╗  ██║    FAST           │"))
+	fmt.Println(cyan("│  ██╔████╔██║██║   ██║██║   ██║██╔██╗ ██║  RECOVERY         │"))
+	fmt.Println(cyan("│  ██║╚██╔╝██║██║   ██║██║   ██║██║╚██╗██║                   │"))
+	fmt.Println(cyan("│  ██║ ╚═╝ ██║╚██████╔╝╚██████╔╝██║ ╚████║                   │"))
 	fmt.Println(cyan("└────────────────────────────────────────────────────────┘") + reset)
 	fmt.Println()
 
